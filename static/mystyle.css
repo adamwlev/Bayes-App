@@ -1,0 +1,57 @@
+#chartId {
+    margin-left: auto;
+    margin-right: auto;
+    display: flex; 
+}
+
+.feature {
+    	font-size: .9em;
+    	margin: 30px 0 5px 0;
+    	width: 300px;
+    }
+
+.feature1 {
+    font-size: .8em;
+    margin: 5px 0 5px 0;
+    width: 300px;
+}
+
+.wrapper {
+      width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+.axis path,
+.axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: geometricPrecision;
+}
+
+#selector1 {
+    width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    margin: 30px 0 0px 0;
+    padding-left: 300px;
+}
+
+#selector2 {
+    width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    margin: 30px 0 0px 0;
+    padding-left: 300px;
+}
+
+
+#run {
+    margin: 40px 0 0px 0;
+    padding-left: 850px;
+    display: flex;
+}
+
+#clear {
+    padding-left: 850px;
+}

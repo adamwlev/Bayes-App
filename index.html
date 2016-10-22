@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<link href="static/mystyle.css" rel="stylesheet" type="text/css">
+		<link rel="stylesheet" href="static/d3.slider.css" />
+		<link rel="shortcut icon" href="#" />
+		<title>Bayes' Theorem</title>
+	</head>
+	<body>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+		<script src="https://d3js.org/d3.v3.min.js"></script>
+		<script src="static/d3.slider.js"></script>
+
+		<div id="sliders1" class="wrapper">
+		  <h2 class="feature">Prior Mean: <span id="pmean"></span></h2>
+		  <div id="pmean_slider"></div>
+		</div>
+
+		<div id="selector1" class="wrapper">
+			<h2 class="feature1">Precision of Estimate: </h2>
+		</div>
+
+		<div id="sliders2" class="wrapper">
+			<h2 class="feature">Prior Std. Deviation: <span id="pstd"></span></h2>
+			<div id="pstd_slider"></div>
+		</div>
+
+		<div id="selector2" class="wrapper">
+			<h2 class="feature1">Precision of Estimate: </h2>
+		</div>
+		
+		<div id="sliders" class="wrapper">
+		  <h2 class="feature">True Mean: <span id="tmean"></span></h2>
+		  <div id="tmean_slider"></div>
+		  <h2 class="feature">True Std. Deviation: <span id="tstd"></span></h2>
+		  <div id="tstd_slider"></div>
+		</div>
+
+		<div id="sliders" class="wrapper">
+		  <h2 class="feature">Number of points: <span id="n"></span></h2>
+		  <div id="n_slider"></div>
+		</div>
+
+		<div id="run" class="button">
+		    <input name="runButton" 
+		           type="button" 
+		           value="Run Updates" 
+		           onclick="run()" />
+		</div>
+
+		<div id="clear" class="button">
+		    <input name="clearButton" 
+		           type="button" 
+		           value="Clear" 
+		           onclick="clearPoints()" />
+		</div>
+
+		<div id="chartId" class="wrapper">
+		</div>
+
+		<a href="url">Blog Post</a>
+		<script>
+		var current_pmean = 3;
+		d3.select('#pmean').text(current_pmean);
+		var current_mprec = 1;
+		var current_pstd = 5;
+		d3.select('#pstd').text(current_pstd);
+		var current_sprec = 1;
+		var current_tmean = -2;
+		d3.select('#tmean').text(current_tmean);
+		var current_tstd = 3;
+		d3.select('#tstd').text(current_tstd);
+		var current_n = 20;
+		d3.select('#n').text(current_n);
+		var prec_options = [0,0.5,1,1.5,2.0];
+
+		var select1 = d3.select('#selector1').append('select')
+		  							  .attr('class','select')
+		    						  .on('change',function(){current_mprec = +d3.select('#selector1').select('select')
+		    						  										 .property('value');})
+
+	  	var options1 = select1.selectAll('option').data(prec_options)
+	  											.enter().append('option')
+	  											.text(function (d) { return d; });
+
+		select1.property('value',current_mprec);
+
+		var select2 = d3.select('#selector2').append('select')
+		  							  .attr('class','select')
+		    						  .on('change',function(){current_sprec = +d3.select('#selector2').select('select')
+		    						  										 .property('value');})
+
+	  	var options2 = select2.selectAll('option').data(prec_options)
+	  											.enter().append('option')
+	  											.text(function (d) { return d; });
+
+		select2.property('value',current_sprec);
+
+		function gaussian(x,mu,sigma) {
+			var gaussianConstant = 1 / Math.sqrt(2 * Math.PI),
+		    x = (x - mu) / sigma;
+		    return gaussianConstant * Math.exp(-.5 * x * x) / sigma;
+		};
+		
+		function getData(mu,sigma) {
+		  data = [];
+		  for (var i = -1000; i < 1500; i++) {
+		   	p = gaussian(i/50,mu,sigma);
+		      el = {
+		          "i": i/50,
+		          "p": p
+		      }
+		      data.push(el);
+		  };
+		  return data;
+		};
+		
+		var margin = {
+		        top: 30,
+		        right: 20,
+		        bottom: 40,
+		        left: 50
+		    },
+	    	width = 960 - margin.left - margin.right,
+	    	height = 500 - margin.top - margin.bottom;
+
+		var x = d3.scale.linear()
+		    .range([0, width]);
+
+		var y = d3.scale.linear()
+		    .range([height, 0]);
+
+		var color = d3.scale.linear()
+			.range(['blue','red']);
+
+		var xAxis = d3.svg.axis()
+		    .scale(x)
+		    .orient("bottom");
+
+		var yAxis = d3.svg.axis()
+		    .scale(y)
+		    .orient("left");
+
+		var line = d3.svg.line()
+		    .x(function(d) {
+		        return x(d.i);
+		    })
+		    .y(function(d) {
+		        return y(d.p);
+		    });
+
+		var svg = d3.select("#chartId").append("svg")
+		    .attr("width", width + margin.left + margin.right)
+		    .attr("height", height + margin.top + margin.bottom)
+		    .append("g")
+		    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	    function plot_background(){
+	    	svg.append("g")
+	        .attr("class", "x axis")
+	        .attr("transform", "translate(0," + height + ")")
+	        .call(xAxis);
+
+		    svg.append("g")
+		        .attr("class", "y axis")
+		        .call(yAxis);
+		};
+
+		function indexOfMin(arr) {
+		    if (arr.length === 0) {
+		        return -1;
+		    }
+		    var min = 10000;
+		    var minIndex = arr.length-1;
+		    for (var i = 0; i < arr.length; i++) {
+		        if (isFinite(arr[i]) & (arr[i] < min)) {
+		            minIndex = i;
+		            min = arr[i];
+		        }
+		    }
+		    return minIndex;
+		};
+
+		function plot(means,variances,points){
+			
+			var ind = indexOfMin(variances);
+			data = getData(means[ind],Math.pow(variances[ind],.5))
+			var max_p = Math.max(...data.map(function(d) {return d.p;}));
+
+			x.domain(d3.extent(data, function(d) {
+			    return d.i;
+			}));
+			y.domain(d3.extent(data, function(d) {
+			    return d.p;
+			}));
+			
+			color.domain([0,current_n]);
+
+			svg.selectAll("g.y.axis")
+			        .call(yAxis);
+
+			svg.selectAll("g.x.axis")
+			        .call(xAxis);
+
+			svg.append("line")
+				.style("stroke","black")
+				.style("stroke-dasharray", ("3, 3"))
+				.attr("x1", x(current_tmean))
+				.attr("y1", y(max_p))
+				.attr("x2", x(current_tmean))
+				.attr("y2", y(0));
+
+			(function() {
+			    // Define a variable
+			    var i = 0,
+			        action = function() {
+			            if (i < means.length) {
+			                if (i > 0){
+    			                var circle = svg.append("circle").style("fill",function(d) {return color(i-1);})
+    	                			.attr('fill-opacity', 0.6)
+    	                			.attr("cx", x(points[i-1]))
+    	                			.attr("cy", y(max_p))
+    	                			.attr("r", 7);
+	                			circle
+	                			   .transition()
+	                			   .duration(360)
+	                			   .attr("cy", height);
+			                }
+			            	data = getData(means[i],Math.pow(variances[i],.5));
+			            	svg.append("path")
+			            	    .datum(data)
+			            	    .attr("class", "line")
+			            	    .attr("d", line)
+			            	    .attr("id", "graph")
+			            	    .attr("fill", "none")
+			            	    .attr("stroke",function(d) {return color(i)})
+			            	    .attr("stroke-width","2");
+			                i++;
+			                setTimeout(action, 500);
+			            }
+			        };
+			    setTimeout(action, 500);
+			})();
+
+			//console.log(means);
+			//console.log(variances);	    
+		};
+
+		plot_background();
+		
+		// from http://bl.ocks.org/mbostock/4349187
+		function normal(mean,std) {
+		    var x = 0,
+		        y = 0,
+		        rds, c;
+		    do {
+		        x = Math.random() * 2 - 1;
+		        y = Math.random() * 2 - 1;
+		        rds = x * x + y * y;
+		    } while (rds == 0 || rds > 1);
+		    c = Math.sqrt(-2 * Math.log(rds) / rds); // Box-Muller transform
+		    return mean + std * x * c; // throw away extra sample y * c
+		};
+
+		function run() {
+			var m0 = current_pmean;
+			var w0 = current_mprec;
+			var e0 = Math.pow(current_pstd,2);
+			var v0 = 1/current_sprec;
+			var r0 = 2*Math.pow(e0,2)/v0 + 2;
+			var s0 = 2*e0 * (Math.pow(e0,2)/v0 + 1);
+			var m0 = [m0];
+			var w0 = [w0];
+			var r0 = [r0];
+			var s0 = [s0];
+			var ds = [];
+			var variance = [s0[0]/(r0[0]-2)*(1+1/w0[0])];
+			var i = 0;
+			do {
+				d = normal(current_tmean,current_tstd);
+				ds.push(d);
+				m0.push((d + w0[i]*m0[i]) / (1 + w0[i]));
+				w0.push(w0[i]+1);
+				r0.push(r0[i]+1);
+				s0.push(s0[i] + Math.pow(d-m0[i],2) * (1+w0[i]/(1+w0[i])));
+				variance.push(s0[i]/(r0[i]-2)*(1+1/w0[i]))
+				i += 1;
+			}
+			while (i<current_n);
+			plot(m0,variance,ds);
+		};
+
+		function clearPoints() {
+			svg.selectAll("#graph").remove();
+			svg.selectAll("circle").remove();
+			svg.selectAll("line").remove();
+		};
+
+		
+
+		<!-- SLIDERS -->
+
+		d3.select('#pmean_slider')
+		  .call(
+		    d3.slider()
+		      .value(current_pmean)
+		      .min(-7.0)
+		      .max(7.0)
+		      .step(0.5)
+		      .axis(true)
+		      .on("slide", function(evt,value) {
+		        d3.select('#pmean').text(value);
+		        current_pmean = value;
+		      }
+		      )
+		  );
+
+		d3.select('#pstd_slider')
+		  .call(
+		    d3.slider()
+		      .value(current_pstd)
+		      .min(0.5)
+		      .max(8.0)
+		      .step(0.5)
+		      .axis(true)
+		      .on("slide", function(evt,value) {
+		        d3.select('#pstd').text(value);
+		        current_pstd = value;
+		      }
+		      )
+		  );
+
+		d3.select('#tmean_slider')
+		  .call(
+		    d3.slider()
+		      .value(current_tmean)
+		      .min(-7.0)
+		      .max(7.0)
+		      .step(0.5)
+		      .axis(true)
+		      .on("slide", function(evt,value) {
+		        d3.select('#tmean').text(value);
+		        current_tmean = value;
+		      }
+		      )
+		  );
+		
+		d3.select('#tstd_slider')
+		  .call(
+		    d3.slider()
+		      .value(current_tstd)
+		      .min(0.5)
+		      .max(8.0)
+		      .step(0.5)
+		      .axis(true)
+		      .on("slide", function(evt,value) {
+		        d3.select('#tstd').text(value);
+		        current_tstd = value;
+		      }
+		      )
+		  );
+
+		d3.select('#n_slider')
+		  .call(
+		    d3.slider()
+		      .value(current_n)
+		  	  .min(1.0)
+		      .max(100.0)
+		      .step(1)
+		      .axis(true)
+		      .on("slide", function(evt,value) {
+		        d3.select('#n').text(value);
+		        current_n = value;
+		      }
+		      )
+		  );
+
+		</script>
+	</body>
+</html>
